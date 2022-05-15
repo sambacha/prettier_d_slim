@@ -4,15 +4,22 @@ import camelize from "camelize";
 import minimist from "minimist";
 import LRU from "nanolru";
 import { Options } from "prettier";
+import { 
+  languages,
+  parsers,
+  printers,
+  options,
+  defaultOptions} from 'prettier-plugin-solidity'
 import resolve from "resolve";
 
 export interface CacheInstance {
   hasConfig: boolean;
   ignorePath: string;
   options: Options;
-  prettier: typeof import("prettier");
+  prettier: typeof import("prettier-plugin-solidity");
   lastRun?: number;
 }
+
 
 export type ParsedOptions = Options & {
   // Added by prettier_d_slim.
@@ -97,7 +104,8 @@ function parseArguments(args: string[]) {
       "single-quote",
       "use-tabs",
       "vue-indent-script-and-style",
-
+      // solidity
+      "explicitTypes",
       // Added by prettier_d_slim.
       "color",
       "stdin",
