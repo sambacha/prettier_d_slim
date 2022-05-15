@@ -1,102 +1,102 @@
-import path from 'path'
+import path from "path";
 
-import camelize from 'camelize'
-import minimist from 'minimist'
-import LRU from 'nanolru'
-import { Options } from 'prettier'
-import resolve from 'resolve'
+import camelize from "camelize";
+import minimist from "minimist";
+import LRU from "nanolru";
+import { Options } from "prettier";
+import resolve from "resolve";
 
-const prettierCache = new LRU<CacheInstance>(10)
+const prettierCache = new LRU<CacheInstance>(10);
 
 function createCache(cacheKey: string, cwd: string, prettierPath?: string) {
   if (prettierPath == null) {
     try {
-      prettierPath = resolve.sync('prettier', { basedir: cwd })
+      prettierPath = resolve.sync("prettier", { basedir: cwd });
     } catch (e) {
       // module not found
-      prettierPath = resolve.sync('prettier')
+      prettierPath = resolve.sync("prettier");
     }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const prettier: CacheInstance['prettier'] = require(prettierPath)
-  const configPath = prettier.resolveConfigFile.sync(cwd)
-  const ignorePath = path.join(cwd, '.prettierignore')
+  const prettier: CacheInstance["prettier"] = require(prettierPath);
+  const configPath = prettier.resolveConfigFile.sync(cwd);
+  const ignorePath = path.join(cwd, ".prettierignore");
   const options =
     prettier.resolveConfig.sync(cwd, {
       useCache: false,
       editorconfig: true,
-    }) || {}
+    }) || {};
 
   const cacheInstance: CacheInstance = {
     prettier,
     options,
     ignorePath,
     hasConfig: Boolean(configPath),
-  }
+  };
 
-  return prettierCache.set(cacheKey, cacheInstance)
+  return prettierCache.set(cacheKey, cacheInstance);
 }
 
 function clearRequireCache(cwd: string) {
   Object.keys(require.cache)
     .filter((key) => key.startsWith(cwd))
     .forEach((key) => {
-      delete require.cache[key]
-    })
+      delete require.cache[key];
+    });
 }
 
 function parseArguments(args: string[]) {
   const parsedOptions = camelize(
     minimist(args, {
       boolean: [
-        'use-tabs',
-        'semi',
-        'single-quote',
-        'jsx-single-quote',
-        'bracket-spacing',
-        'jsx-bracket-same-line',
-        'require-pragma',
-        'insert-pragma',
-        'vue-indent-script-and-style',
-        'config',
-        'editorconfig',
+        "use-tabs",
+        "semi",
+        "single-quote",
+        "jsx-single-quote",
+        "bracket-spacing",
+        "jsx-bracket-same-line",
+        "require-pragma",
+        "insert-pragma",
+        "vue-indent-script-and-style",
+        "config",
+        "editorconfig",
 
         // Added by prettier_d_slim.
-        'color',
-        'stdin',
+        "color",
+        "stdin",
       ],
     }) as Options & {
       // Added by prettier_d_slim.
-      stdin?: boolean
-      stdinFilepath?: string
-      prettierPath?: string
+      stdin?: boolean;
+      stdinFilepath?: string;
+      prettierPath?: string;
       // Alternate way of passing text
-      text?: string
+      text?: string;
       // Colon separated string.
-      pluginSearchDir?: string
+      pluginSearchDir?: string;
       // Colon separated string.
-      plugin?: string
+      plugin?: string;
 
       // Used in prettier cli.
-      configPrecedence?: string
-    },
-  )
+      configPrecedence?: string;
+    }
+  );
 
   if (parsedOptions.stdinFilepath) {
-    parsedOptions.filepath = parsedOptions.stdinFilepath
+    parsedOptions.filepath = parsedOptions.stdinFilepath;
   }
 
   if (parsedOptions.configPrecedence == null) {
-    parsedOptions.configPrecedence = 'file-override'
+    parsedOptions.configPrecedence = "file-override";
   }
 
-  return parsedOptions
+  return parsedOptions;
 }
 
-declare module 'prettier' {
+declare module "prettier" {
   interface FileInfoOptions {
-    pluginSearchDirs?: string[]
+    pluginSearchDirs?: string[];
   }
 }
 
@@ -108,89 +108,84 @@ export const invoke = (
   args: string[],
   text: string,
   mtime: number,
-  callback: (err: unknown, output: string) => void,
+  callback: (err: unknown, output: string) => void
 ) => {
-  process.chdir(cwd)
+  process.chdir(cwd);
 
-  const parsedOptions = parseArguments(args)
-  const prettierPath = parsedOptions.prettierPath
-  const cacheKey = `${cwd};${parsedOptions.prettierPath || ''}`
+  const parsedOptions = parseArguments(args);
+  const prettierPath = parsedOptions.prettierPath;
+  const cacheKey = `${cwd};${parsedOptions.prettierPath || ""}`;
 
-  let cache = prettierCache.get(cacheKey)
+  let cache = prettierCache.get(cacheKey);
   if (!cache) {
-    cache = createCache(cacheKey, cwd, prettierPath)
+    cache = createCache(cacheKey, cwd, prettierPath);
   } else if (mtime > (cache.lastRun || 0)) {
-    clearRequireCache(cwd)
-    cache = createCache(cacheKey, cwd, prettierPath)
+    clearRequireCache(cwd);
+    cache = createCache(cacheKey, cwd, prettierPath);
   }
-  cache.lastRun = Date.now()
+  cache.lastRun = Date.now();
 
   // Skip if there is no prettier config.
   if (!cache.hasConfig) {
-    callback(undefined, text)
-    return
+    callback(undefined, text);
+    return;
   }
 
-  const filePath = parsedOptions.filepath
+  const filePath = parsedOptions.filepath;
 
   if (!filePath) {
-    throw new Error('set filePath with `--stdin-filepath`')
+    throw new Error("set filePath with `--stdin-filepath`");
   }
 
   const fileInfo = cache.prettier.getFileInfo.sync(filePath, {
     ignorePath: cache.ignorePath,
-    pluginSearchDirs: parsedOptions.pluginSearchDir
-      ? parsedOptions.pluginSearchDir.split(':')
-      : undefined,
-    plugins: parsedOptions.plugin ? parsedOptions.plugin.split(':') : undefined,
-  })
+    pluginSearchDirs: parsedOptions.pluginSearchDir ? parsedOptions.pluginSearchDir.split(":") : undefined,
+    plugins: parsedOptions.plugin ? parsedOptions.plugin.split(":") : undefined,
+  });
 
   // Skip if file is ignored.
   if (fileInfo.ignored) {
-    callback(undefined, text)
-    return
+    callback(undefined, text);
+    return;
   }
 
-  let options: Options = {}
+  let options: Options = {};
   switch (parsedOptions.configPrecedence) {
-    case 'cli-override':
-      options = Object.assign({}, cache.options, parsedOptions)
-      break
-    case 'file-override':
-      options = Object.assign({}, parsedOptions, cache.options)
-      break
+    case "cli-override":
+      options = Object.assign({}, cache.options, parsedOptions);
+      break;
+    case "file-override":
+      options = Object.assign({}, parsedOptions, cache.options);
+      break;
   }
 
   if (parsedOptions.stdin && parsedOptions.filepath) {
-    options.filepath = parsedOptions.filepath
+    options.filepath = parsedOptions.filepath;
   }
 
-  callback(
-    undefined,
-    cache.prettier.format(parsedOptions.text || text, options),
-  )
-}
+  callback(undefined, cache.prettier.format(parsedOptions.text || text, options));
+};
 
-export const cache = prettierCache
+export const cache = prettierCache;
 
 /**
  * The core_d status hook.
  */
 export const getStatus = () => {
-  const { keys } = prettierCache
+  const { keys } = prettierCache;
   if (keys.length === 0) {
-    return 'No instances cached.'
+    return "No instances cached.";
   }
   if (keys.length === 1) {
-    return 'One instance cached.'
+    return "One instance cached.";
   }
-  return `${keys.length} instances cached.`
-}
+  return `${keys.length} instances cached.`;
+};
 
 export interface CacheInstance {
-  hasConfig: boolean
-  ignorePath: string
-  options: Options
-  prettier: typeof import('prettier')
-  lastRun?: number
+  hasConfig: boolean;
+  ignorePath: string;
+  options: Options;
+  prettier: typeof import("prettier");
+  lastRun?: number;
 }
