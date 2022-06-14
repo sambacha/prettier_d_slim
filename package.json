@@ -1,9 +1,9 @@
 {
   "name": "fmtpretty",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Makes prettier fast",
   "bin": {
-    "prettier_d_slim": "lib/bin/prettier_d_slim.js"
+    "fmtpretty": "lib/bin/prettier_d_slim.js"
   },
   "keywords": [
     "prettier",
