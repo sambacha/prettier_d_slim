@@ -16,7 +16,7 @@ declare module 'core_d/lib/client' {
 }
 
 declare module 'core_d/lib/connect' {
-  import { Socket } from 'net'
+  import { Socket } from 'node:net'
 
   export interface ConnectCallback {
     (errorMessage: string): void
@@ -50,6 +50,6 @@ declare module 'core_d/lib/portfile' {
 }
 
 declare module 'core_d/lib/server' {
-  import { Server } from 'net'
+  import { Server } from 'node:net'
   export function start(): Server
 }
